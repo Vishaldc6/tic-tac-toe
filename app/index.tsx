@@ -1,164 +1,247 @@
-import { useEffect, useState } from "react";
-import { Text, View, StyleSheet, TouchableOpacity, Alert } from "react-native";
+import React, { useState } from "react";
+import {
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+  useWindowDimensions,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { StatusBar } from "expo-status-bar";
+import { Feather } from "@expo/vector-icons";
 
 import { Box } from "@/src/components/Box";
-import { Colors } from "@/src/constants/colors";
+import { Header } from "@/src/components/Header";
+import { PlayerHUD } from "@/src/components/PlayerHUD";
+import { useTheme } from "@/src/context/ThemeContext";
+
+const WINNING_COMBINATIONS = [
+  [0, 1, 2],
+  [3, 4, 5],
+  [6, 7, 8],
+  [0, 3, 6],
+  [1, 4, 7],
+  [2, 5, 8],
+  [0, 4, 8],
+  [2, 4, 6],
+];
 
 export default function Index() {
-  const [turn, setTurn] = useState(1);
-  const [matrix, setMatrix] = useState(["", "", "", "", "", "", "", "", ""]);
+  const { width } = useWindowDimensions();
+  const { colors, isDark } = useTheme();
 
-  useEffect(() => {
-    turn <= 10 && checkWin();
-  }, [turn]);
+  const [board, setBoard] = useState<string[]>(Array(9).fill(""));
+  const [turn, setTurn] = useState<"X" | "O">("X");
+  const [winner, setWinner] = useState<"X" | "O" | "draw" | null>(null);
+  const [winningPattern, setWinningPattern] = useState<number[] | null>(null);
+  const [scores, setScores] = useState({ x: 0, o: 0, ties: 0 });
 
-  const checkWin = () => {
-    if (turn >= 5) {
-      const winningPatterns = [
-        [0, 1, 2],
-        [0, 4, 8],
-        [0, 3, 6],
-        [3, 4, 5],
-        [6, 7, 8],
-        [2, 5, 8],
-        [1, 4, 7],
-        [2, 4, 6],
-      ];
+  // Classic 3x3 sizing
+  const cellSize = Math.min(100, Math.floor((width - 64) / 3));
+  const boardSize = cellSize * 3;
 
-      for (const pattern of winningPatterns) {
-        const [a, b, c] = pattern;
-        if (
-          matrix[a] === matrix[b] &&
-          matrix[b] === matrix[c] &&
-          matrix[a] !== ""
-        ) {
-          Alert.alert("Won", `Player ${matrix[a]} WON !!`);
-          setTurn(11);
-          return;
-        }
+  const checkWinner = (currentBoard: string[]): number[] | null => {
+    for (const combo of WINNING_COMBINATIONS) {
+      const [a, b, c] = combo;
+      if (
+        currentBoard[a] &&
+        currentBoard[a] === currentBoard[b] &&
+        currentBoard[a] === currentBoard[c]
+      ) {
+        return combo;
       }
-      if (turn > 9) {
-        Alert.alert("Draw", "Oops! it's a Draw !!");
-      }
-      // if (
-      //   (matrix[0] == "O" && matrix[1] == "O" && matrix[2] == "O") ||
-      //   (matrix[0] == "O" && matrix[4] == "O" && matrix[8] == "O") ||
-      //   (matrix[0] == "O" && matrix[3] == "O" && matrix[6] == "O") ||
-      //   (matrix[3] == "O" && matrix[4] == "O" && matrix[5] == "O") ||
-      //   (matrix[6] == "O" && matrix[7] == "O" && matrix[8] == "O") ||
-      //   (matrix[2] == "O" && matrix[5] == "O" && matrix[8] == "O") ||
-      //   (matrix[1] == "O" && matrix[4] == "O" && matrix[7] == "O") ||
-      //   (matrix[2] == "O" && matrix[4] == "O" && matrix[6] == "O")
-      // ) {
-      //   alert("Player 1 WON!!");
-      //   setTurn(10);
-      // } else if (
-      //   (matrix[0] == "X" && matrix[1] == "X" && matrix[2] == "X") ||
-      //   (matrix[0] == "X" && matrix[4] == "X" && matrix[8] == "X") ||
-      //   (matrix[0] == "X" && matrix[3] == "X" && matrix[6] == "X") ||
-      //   (matrix[3] == "X" && matrix[4] == "X" && matrix[5] == "X") ||
-      //   (matrix[6] == "X" && matrix[7] == "X" && matrix[8] == "X") ||
-      //   (matrix[2] == "X" && matrix[5] == "X" && matrix[8] == "X") ||
-      //   (matrix[1] == "X" && matrix[4] == "X" && matrix[7] == "X") ||
-      //   (matrix[2] == "X" && matrix[4] == "X" && matrix[6] == "X")
-      // ) {
-      //   alert("Player 2 WON!!");
-      //   setTurn(10);
-      // } else if (turn > 9) {
-      //   alert("draw!");
-      // }
     }
+    return null;
+  };
+
+  const handleTilePress = (index: number) => {
+    if (board[index] !== "" || winner !== null) return;
+
+    const nextBoard = [...board];
+    nextBoard[index] = turn;
+    setBoard(nextBoard);
+
+    const winCombo = checkWinner(nextBoard);
+    if (winCombo) {
+      setWinner(turn);
+      setWinningPattern(winCombo);
+      setScores((prev) => ({
+        ...prev,
+        [turn === "X" ? "x" : "o"]: prev[turn === "X" ? "x" : "o"] + 1,
+      }));
+      return;
+    }
+
+    if (nextBoard.every((cell) => cell !== "")) {
+      setWinner("draw");
+      setScores((prev) => ({ ...prev, ties: prev.ties + 1 }));
+      return;
+    }
+
+    setTurn((prev) => (prev === "X" ? "O" : "X"));
+  };
+
+  const handlePlayAgain = () => {
+    setBoard(Array(9).fill(""));
+    setWinner(null);
+    setWinningPattern(null);
+    setTurn(winner === "O" ? "O" : "X");
+  };
+
+  const handleResetScores = () => {
+    setBoard(Array(9).fill(""));
+    setWinner(null);
+    setWinningPattern(null);
+    setTurn("X");
+    setScores({ x: 0, o: 0, ties: 0 });
   };
 
   return (
-    <View style={styles.container}>
-      <View style={styles.playerContainer}>
-        <Text style={styles.playerText}>{"Player 1: O"}</Text>
-        <Text style={styles.playerText}>{"Player 2: X"}</Text>
-      </View>
-      <Text style={styles.turnText}>
-        {"TURN : Player "}
-        {turn % 2 ? "1" : "2"}
-      </Text>
-      <View style={styles.board}>
-        {matrix.map((val, i) => (
-          <Box
-            disabled={turn > 9}
-            onPress={() => {
-              if (matrix[i] == "") {
-                setMatrix((prev) => {
-                  prev[i] = turn % 2 ? "O" : "X";
-                  return prev;
-                });
-                setTurn((prv) => prv + 1);
-              }
-            }}
-            style={[
-              i % 3 != 0 && {
-                borderLeftWidth: 8,
-              },
-              i > 2 && {
-                borderTopWidth: 8,
-              },
-            ]}
-            value={val}
-          />
-        ))}
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+      <StatusBar style={isDark ? "light" : "dark"} />
+
+      {/* Header */}
+      <Header onResetScores={handleResetScores} />
+
+      {/* Player Score & Turn Capsule */}
+      <PlayerHUD
+        currentTurn={turn}
+        scoreX={scores.x}
+        scoreO={scores.o}
+        scoreTies={scores.ties}
+      />
+
+      {/* Clean Status Message */}
+      <View style={styles.statusWrapper}>
+        {winner === "X" && (
+          <Text style={[styles.statusText, { color: colors.playerX }]}>
+            Player 1 won
+          </Text>
+        )}
+        {winner === "O" && (
+          <Text style={[styles.statusText, { color: colors.playerO }]}>
+            Player 2 won
+          </Text>
+        )}
+        {winner === "draw" && (
+          <Text style={[styles.statusText, { color: colors.textPrimary }]}>
+            Game ended in a draw
+          </Text>
+        )}
+        {!winner && (
+          <Text style={[styles.statusSubtle, { color: colors.textSecondary }]}>
+            {turn === "X" ? "Player 1's turn" : "Player 2's turn"}
+          </Text>
+        )}
       </View>
 
-      <TouchableOpacity
-        style={styles.resetBtn}
-        onPress={() => {
-          setMatrix(["", "", "", "", "", "", "", "", ""]);
-          setTurn(1);
-        }}
-      >
-        <Text style={styles.resetText}>{"RESET"}</Text>
-      </TouchableOpacity>
-    </View>
+      {/* Classic 3x3 Grid */}
+      <View style={styles.boardContainer}>
+        <View
+          style={[
+            styles.board,
+            {
+              width: boardSize,
+              height: boardSize,
+            },
+          ]}
+        >
+          {board.map((val, i) => (
+            <Box
+              key={i}
+              value={val}
+              size={cellSize}
+              disabled={winner !== null}
+              isWinning={winningPattern?.includes(i) ?? false}
+              onPress={() => handleTilePress(i)}
+              style={[
+                i % 3 !== 0 && {
+                  borderLeftWidth: 5,
+                  borderLeftColor: colors.gridLine,
+                },
+                i > 2 && {
+                  borderTopWidth: 5,
+                  borderTopColor: colors.gridLine,
+                },
+              ]}
+            />
+          ))}
+        </View>
+      </View>
+
+      {/* Bottom Action Controls */}
+      <View style={styles.bottomControls}>
+        <TouchableOpacity
+          activeOpacity={0.7}
+          style={[
+            styles.actionButton,
+            {
+              backgroundColor: colors.surface,
+              borderColor: colors.border,
+            },
+          ]}
+          onPress={handlePlayAgain}
+        >
+          <Feather
+            name={winner ? "play" : "rotate-ccw"}
+            size={16}
+            color={colors.textPrimary}
+            style={{ marginRight: 8 }}
+          />
+          <Text style={[styles.actionButtonText, { color: colors.textPrimary }]}>
+            {winner ? "Play Again" : "Reset Board"}
+          </Text>
+        </TouchableOpacity>
+      </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    justifyContent: "space-between",
+  },
+  statusWrapper: {
+    height: 36,
     justifyContent: "center",
-    backgroundColor: Colors.PRIMARY_BACKGROUND,
+    alignItems: "center",
+  },
+  statusText: {
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  statusSubtle: {
+    fontSize: 14,
+    fontWeight: "400",
+  },
+  boardContainer: {
+    alignItems: "center",
+    justifyContent: "center",
+    alignSelf: "center",
+    marginVertical: 16,
   },
   board: {
     flexDirection: "row",
-    width: 300,
-    height: 300,
     flexWrap: "wrap",
     alignSelf: "center",
-    margin: 50,
   },
-  playerContainer: {
-    flexDirection: "row",
-    justifyContent: "space-around",
-  },
-  playerText: {
-    fontSize: 24,
-    color: Colors.PRIMARY_TEXT,
-    marginVertical: 30,
-    fontWeight: "600",
-  },
-  turnText: {
-    alignSelf: "center",
-    fontSize: 18,
-    color: Colors.PRIMARY_TEXT,
-    fontWeight: "600",
-  },
-  resetBtn: {
-    backgroundColor: Colors.SECONDARY,
+  bottomControls: {
+    paddingHorizontal: 24,
+    paddingBottom: 24,
     alignItems: "center",
-    marginHorizontal: 20,
-    padding: 15,
-    borderRadius: 20,
   },
-  resetText: {
-    color: Colors.PRIMARY_TEXT,
-    fontSize: 18,
+  actionButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    width: "100%",
+    paddingVertical: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  actionButtonText: {
+    fontSize: 15,
     fontWeight: "600",
   },
 });
