@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "tic-tac-toe",
+    "name": "Shunya Chokadi: Tic-Tac-Toe",
     "slug": "tic-tac-toe",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -13,7 +13,7 @@
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/logo.png",
-        "backgroundColor": "#ffffff"
+        "backgroundColor": "#121214"
       },
       "package": "com.vishaldc.tictactoe"
     },
@@ -29,7 +29,7 @@
         {
           "image": "./assets/images/logo.png",
           "resizeMode": "contain",
-          "backgroundColor": "#ffffff"
+          "backgroundColor": "#121214"
         }
       ]
     ],
